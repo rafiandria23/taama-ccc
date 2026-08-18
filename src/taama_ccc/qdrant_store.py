@@ -42,7 +42,7 @@ def _ensure_collection(client: QdrantClient, settings: Settings) -> None:
 
 
 class QdrantStore:
-    def __init___(
+    def __init__(
         self,
         client: QdrantClient,
         settings: Settings,
