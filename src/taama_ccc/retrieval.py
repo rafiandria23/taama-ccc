@@ -10,18 +10,35 @@ from taama_ccc.models import DocumentChunk, Evidence
 from taama_ccc.qdrant_store import QdrantStore
 
 
+def embed_texts(
+    client: OpenAI,
+    settings: Settings,
+    texts: list[str],
+    *,
+    batch_size: int = 100,
+) -> list[list[float]]:
+    vectors: list[list[float]] = []
+
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
+
+        response = client.embeddings.create(
+            model=settings.openai_embedding_model,
+            input=batch,
+            dimensions=settings.openai_embedding_dimensions,
+        )
+
+        vectors.extend(item.embedding for item in response.data)
+
+    return vectors
+
+
 def embed_text(
     client: OpenAI,
     settings: Settings,
     text: str,
 ) -> list[float]:
-    response = client.embeddings.create(
-        model=settings.openai_embedding_model,
-        input=text,
-        dimensions=settings.openai_embedding_dimensions,
-    )
-
-    return response.data[0].embedding
+    return embed_texts(client, settings, [text])[0]
 
 
 class RerankItem(BaseModel):

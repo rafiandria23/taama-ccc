@@ -85,35 +85,34 @@ class QdrantStore:
             points=points,
         )
 
-
-def query(
-    self,
-    *,
-    dense_vector: list[float],
-    query_text: str,
-    limit: int,
-    prefetch_limit: int,
-) -> list[models.ScoredPoint]:
-    response = self._client.query_points(
-        collection_name=self._collection,
-        prefetch=[
-            models.Prefetch(
-                query=dense_vector,
-                using=DENSE_VECTOR_NAME,
-                limit=prefetch_limit,
-            ),
-            models.Prefetch(
-                query=models.Document(
-                    text=query_text,
-                    model="qdrant/bm25",
+    def query(
+        self,
+        *,
+        dense_vector: list[float],
+        query_text: str,
+        limit: int,
+        prefetch_limit: int,
+    ) -> list[models.ScoredPoint]:
+        response = self._client.query_points(
+            collection_name=self._collection,
+            prefetch=[
+                models.Prefetch(
+                    query=dense_vector,
+                    using=DENSE_VECTOR_NAME,
+                    limit=prefetch_limit,
                 ),
-                using=SPARSE_VECTOR_NAME,
-                limit=prefetch_limit,
-            ),
-        ],
-        query=models.FusionQuery(fusion=models.Fusion.RRF),
-        limit=limit,
-        with_payload=True,
-    )
+                models.Prefetch(
+                    query=models.Document(
+                        text=query_text,
+                        model="qdrant/bm25",
+                    ),
+                    using=SPARSE_VECTOR_NAME,
+                    limit=prefetch_limit,
+                ),
+            ],
+            query=models.FusionQuery(fusion=models.Fusion.RRF),
+            limit=limit,
+            with_payload=True,
+        )
 
-    return response.points
+        return response.points

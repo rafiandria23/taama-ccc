@@ -1,0 +1,122 @@
+import argparse
+from pathlib import Path
+
+from openai import OpenAI
+from rich.console import Console
+from rich.table import Table
+
+from taama_ccc.config import get_settings
+from taama_ccc.corpus import parse_corpus
+from taama_ccc.models import DocumentChunk
+from taama_ccc.qdrant_store import QdrantStore, create_qdrant_client
+from taama_ccc.retrieval import embed_texts
+
+console = Console()
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="ebuild the Qdrant index from a regulatory corpus.",
+    )
+
+    parser.add_argument(
+        "corpus_path",
+        type=Path,
+        help="Path to a corpus .docx file, or a directory containing one or more .docx files.",
+    )
+
+    return parser.parse_args()
+
+
+def _resolve_corpus_paths(path: Path) -> list[Path]:
+    if path.is_dir():
+        found = sorted(path.glob("*.docx"))
+
+        if not found:
+            raise SystemExit(f"no .docx files found in {path}")
+
+        return found
+
+    if not path.exists():
+        raise SystemExit(f"corpus not found at {path}")
+
+    if path.suffix.lower() != ".docx":
+        raise SystemExit(f"expected a .docx file, got {path}")
+
+    return [path]
+
+
+def _print_summary(chunks: list[DocumentChunk]) -> None:
+    table_rows = sum(1 for c in chunks if c.metadata.get("chunk_type") == "table_row")
+    stale = sum(1 for c in chunks if c.metadata.get("possible_stale_source") == "true")
+    examples = sum(
+        1
+        for c in chunks
+        if c.metadata.get("document_section") == "illustrative_example"
+    )
+
+    table = Table(title="Corpus parse summary")
+
+    table.add_column("Metric")
+    table.add_column("Count", justify="right")
+
+    table.add_row("Total chunks", str(len(chunks)))
+    table.add_row("Table-row chunks", str(table_rows))
+    table.add_row("Prose chunks", str(len(chunks) - table_rows))
+    table.add_row("Illustrative-example rows (Part 4)", str(examples))
+    table.add_row("Flagged possibly-stale sources", str(stale))
+
+    console.print(table)
+
+
+def main() -> None:
+    args = _parse_args()
+    corpus_paths = _resolve_corpus_paths(args.corpus_path)
+    settings = get_settings()
+
+    console.print(
+        f"[bold]Corpus source(s):[/bold] {', '.join(p.name for p in corpus_paths)}"
+    )
+
+    all_chunks: list[DocumentChunk] = []
+
+    for path in corpus_paths:
+        with console.status(f"Parsing {path.name}..."):
+            chunks = parse_corpus(path)
+
+        all_chunks.extend(chunks)
+
+        console.print(
+            f"  [green]\u2713[/green] {path.name} \u2014 {len(chunks)} chunks"
+        )
+
+    _print_summary(all_chunks)
+
+    client = OpenAI(api_key=settings.openai_api_key.get_secret_value())
+
+    qdrant_client = create_qdrant_client(settings)
+    store = QdrantStore(qdrant_client, settings)
+
+    with console.status("Recreating Qdrant collection..."):
+        store.recreate_collection()
+
+    console.print(
+        f"[green]\u2713[/green] Collection '{settings.qdrant_collection}' ready"
+    )
+
+    with console.status(f"Embedding {len(all_chunks)} chunks...", spinner="dots"):
+        vectors = embed_texts(client, settings, [chunk.text for chunk in all_chunks])
+
+    console.print(f"[green]\u2713[/green] Embedded {len(vectors)} chunks")
+
+    with console.status("Indexing into Qdrant..."):
+        store.upsert(all_chunks, vectors)
+
+    console.print(
+        f"[bold green]Indexed {len(all_chunks)} chunks into "
+        f"'{settings.qdrant_collection}'[/bold green]"
+    )
+
+
+if __name__ == "__main__":
+    main()
