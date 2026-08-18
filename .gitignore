@@ -219,11 +219,17 @@ __marimo__/
 .streamlit/secrets.toml
 
 # ---------------------------------------------------------------------------
-# Taama-CCC project data
+# Project data
 # ---------------------------------------------------------------------------
+# Qdrant's bind-mounted on-disk storage (docker-compose.yml). Every
+# DocumentChunk's full text is stored verbatim in Qdrant's payload — this
+# directory contains the complete parsed regulatory corpus, not just vector
+# math. Committing it would leak the same proprietary content excluded
+# below via data/raw/, just through a different path.
+docker/volumes/
+
 # Everything under data/ is ignored by default:
-#   - data/raw/       — Taama's proprietary regulatory corpus, not for a
-#                        public repo
+#   - data/raw/       — proprietary regulatory corpus, not for a public repo
 #   - data/fixtures/  — real third-party product photos/PDFs (Nutrisrot,
 #                        Nano Singapore, Carob Farm), not ours to publish
 data/*
