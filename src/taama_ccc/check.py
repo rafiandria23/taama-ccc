@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
+import time
 from pathlib import Path
 
 from openai import OpenAI
@@ -32,6 +34,12 @@ STATUS_LABELS = {
     "amber": "AMBER",
     "green": "GREEN",
     "needs_review": "NEEDS REVIEW",
+}
+STATUS_ICONS = {
+    "red": "[bold red]\u2717[/bold red]",
+    "amber": "[bold yellow]\u26a0[/bold yellow]",
+    "green": "[bold green]\u2713[/bold green]",
+    "needs_review": "[bold white]?[/bold white]",
 }
 
 
@@ -82,8 +90,13 @@ def _resolve_input_paths(paths: list[Path]) -> list[Path]:
     return resolved
 
 
-def _progress(message: str) -> None:
-    _stderr_console.print(f"[dim]{message}[/dim]")
+def _spinner_or_print(message: str):
+    if _stderr_console.is_terminal:
+        return _stderr_console.status(message)
+
+    _stderr_console.print(message)
+
+    return contextlib.nullcontext()
 
 
 def _evidence_summary(evidence) -> list[dict]:
@@ -190,7 +203,7 @@ def _render_summary(record: dict) -> None:
         str(record.get("claim_count", sum(counts.values()))),
     )
 
-    _console.print()
+    _console.print(table)
 
 
 def run(args: argparse.Namespace) -> None:
@@ -200,20 +213,26 @@ def run(args: argparse.Namespace) -> None:
     input_paths = _resolve_input_paths(args.input) if args.input else None
 
     if input_paths:
-        _progress(f"Extracting claims from {len(input_paths)} file(s)...")
+        extraction_message = (
+            f"[bold]Extracting claims[/bold] from {len(input_paths)} file(s)..."
+        )
     else:
-        _progress("Extracting claims from text input...")
+        extraction_message = "[bold]Extracting claims[/bold] from text input..."
 
-    extracted = extract_claims(
-        client,
-        settings,
-        text=args.text,
-        file_paths=input_paths,
-    )
+    extract_start = time.perf_counter()
+    with _spinner_or_print(extraction_message):
+        extracted = extract_claims(
+            client,
+            settings,
+            text=args.text,
+            file_paths=input_paths,
+        )
+    extract_elapsed = time.perf_counter() - extract_start
 
-    _progress(
-        f"Extracted {len(extracted.claims)} claim(s) for "
-        f"'{extracted.product_name or 'unknown product'}'"
+    _stderr_console.print(
+        f"[green]\u2713[/green] Extracted {len(extracted.claims)} claim(s) for "
+        f"'{extracted.product_name or 'unknown product'}' "
+        f"[dim]({extract_elapsed:.1f}s)[/dim]"
     )
 
     if not extracted.claims:
@@ -241,12 +260,25 @@ def run(args: argparse.Namespace) -> None:
     status_counts: dict[str, int] = {}
 
     for i, claim_text in enumerate(extracted.claims, start=1):
-        _progress(f"[{i}/{len(extracted.claims)}] Checking: {claim_text[:70]}")
+        _stderr_console.rule(
+            f"[bold]Claim {i}/{len(extracted.claims)}[/bold]", style="dim"
+        )
 
-        result = check_claim(client, settings, retriever, claim_text)
+        start = time.perf_counter()
+
+        with _spinner_or_print(f"[dim]Checking:[/dim] {claim_text}"):
+            result = check_claim(client, settings, retriever, claim_text)
+
+        elapsed = time.perf_counter() - start
+
+        icon = STATUS_ICONS.get(result.status.value, "?")
 
         if args.json:
-            _progress(f"[{i}/{len(extracted.claims)}] -> {result.status.value.upper()}")
+            _stderr_console.print(
+                f"{icon} {result.status.value.upper()} [dim]({elapsed:.1f}s)[/dim]"
+            )
+        else:
+            _stderr_console.print(f"[dim]{icon} done in {elapsed:.1f}s[/dim]")
 
         status_counts[result.status.value] = (
             status_counts.get(result.status.value, 0) + 1
