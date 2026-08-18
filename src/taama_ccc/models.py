@@ -43,6 +43,7 @@ class ComplianceResult(BaseModel):
     reasoning: str
     evidence: list[Evidence]
     confidence: float = Field(ge=0.0, le=1.0)
+    confidence_basis: str
 
 
 class ExtractedClaims(BaseModel):

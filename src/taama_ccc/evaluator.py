@@ -29,6 +29,7 @@ class EvidenceClassificationBatch(BaseModel):
 class Verdict(BaseModel):
     status: ComplianceStatus
     confidence: float = Field(ge=0.0, le=1.0)
+    confidence_basis: str
     cited_evidence: list[Evidence]
     engine_reason: str
 
@@ -45,6 +46,11 @@ def decide_verdict(
         return Verdict(
             status=ComplianceStatus.NEEDS_REVIEW,
             confidence=0.3,
+            confidence_basis=(
+                "Not calibrated — this is a coverage gap, not a scored judgment. "
+                "The number reflects that there's nothing to be confident about, "
+                "not a measured error rate."
+            ),
             cited_evidence=[],
             engine_reason=(
                 "No retrieved rule was classified as applicable to this claim — "
@@ -66,6 +72,11 @@ def decide_verdict(
         return Verdict(
             status=ComplianceStatus.NEEDS_REVIEW,
             confidence=0.4,
+            confidence_basis=(
+                "Not calibrated — deliberately below the no-match case (0.3) because "
+                "a match was found, but above trusting it outright, since the source "
+                "itself admits it may be outdated."
+            ),
             cited_evidence=cited,
             engine_reason=(
                 f"The applicable rule's own source is flagged as possibly stale or "
@@ -79,6 +90,11 @@ def decide_verdict(
         return Verdict(
             status=ComplianceStatus.RED,
             confidence=0.85,
+            confidence_basis=(
+                "Not statistically calibrated — reflects that a hard Block trigger "
+                "is the least ambiguous match type the corpus provides, not a "
+                "measured accuracy rate against labeled data."
+            ),
             cited_evidence=cited,
             engine_reason="At least one applicable rule is a hard Block trigger.",
         )
@@ -87,6 +103,11 @@ def decide_verdict(
         return Verdict(
             status=ComplianceStatus.AMBER,
             confidence=0.6,
+            confidence_basis=(
+                "Not statistically calibrated — set below a Block match by design, "
+                "since a Warn trigger is conditional/qualified by nature, not "
+                "because of any measured uncertainty."
+            ),
             cited_evidence=cited,
             engine_reason=(
                 "At least one applicable rule is a Warn trigger — conditionally "
@@ -97,6 +118,11 @@ def decide_verdict(
     return Verdict(
         status=ComplianceStatus.GREEN,
         confidence=0.75,
+        confidence_basis=(
+            "Not statistically calibrated — set below a Block match because 'no "
+            "rule objects' is a structurally weaker signal than 'a rule explicitly "
+            "and strongly matched', not because of measured error rates."
+        ),
         cited_evidence=cited,
         engine_reason="Applicable rules found; none block or warn.",
     )
@@ -108,4 +134,5 @@ def build_result(verdict: Verdict, justification: str) -> ComplianceResult:
         reasoning=f"{justification}\n\n[Engine: {verdict.engine_reason}]",
         evidence=verdict.cited_evidence,
         confidence=verdict.confidence,
+        confidence_basis=verdict.confidence_basis,
     )

@@ -132,9 +132,15 @@ def _render_claim(record: dict) -> None:
     body.append(f"{record.get('reasoning', '')}\n")
 
     confidence = record.get("confidence")
+    confidence_basis = record.get("confidence_basis")
 
     if confidence is not None:
-        body.append(f"\nConfidence: {confidence:.2f}", style="dim")
+        line = f"\nConfidence: {confidence:.2f}"
+
+        if confidence_basis:
+            line += f" — {confidence_basis}"
+
+        body.append(line, style="dim")
 
     _console.print(
         Panel(
@@ -290,6 +296,7 @@ def run(args: argparse.Namespace) -> None:
             "claim": claim_text,
             "status": result.status.value,
             "confidence": result.confidence,
+            "confidence_basis": result.confidence_basis,
             "reasoning": result.reasoning,
             "evidence": _evidence_summary(result.evidence),
         }
