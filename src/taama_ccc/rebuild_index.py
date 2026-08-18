@@ -14,18 +14,12 @@ from taama_ccc.retrieval import embed_texts
 console = Console()
 
 
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="ebuild the Qdrant index from a regulatory corpus.",
-    )
-
+def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "corpus_path",
         type=Path,
         help="Path to a corpus .docx file, or a directory containing one or more .docx files.",
     )
-
-    return parser.parse_args()
 
 
 def _resolve_corpus_paths(path: Path) -> list[Path]:
@@ -69,8 +63,7 @@ def _print_summary(chunks: list[DocumentChunk]) -> None:
     console.print(table)
 
 
-def main() -> None:
-    args = _parse_args()
+def run(args: argparse.Namespace) -> None:
     corpus_paths = _resolve_corpus_paths(args.corpus_path)
     settings = get_settings()
 
@@ -116,7 +109,3 @@ def main() -> None:
         f"[bold green]Indexed {len(all_chunks)} chunks into "
         f"'{settings.qdrant_collection}'[/bold green]"
     )
-
-
-if __name__ == "__main__":
-    main()
