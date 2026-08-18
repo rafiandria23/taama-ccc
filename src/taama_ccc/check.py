@@ -77,7 +77,9 @@ def _resolve_input_paths(paths: list[Path]) -> list[Path]:
     for path in paths:
         if path.is_dir():
             found = sorted(
-                p for p in path.iterdir() if p.suffix.lower() in SUPPORTED_SUFFIXES
+                p
+                for p in path.rglob("*")
+                if p.is_file() and p.suffix.lower() in SUPPORTED_SUFFIXES
             )
 
             if not found:

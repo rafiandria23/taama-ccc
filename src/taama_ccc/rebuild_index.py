@@ -24,7 +24,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 def _resolve_corpus_paths(path: Path) -> list[Path]:
     if path.is_dir():
-        found = sorted(path.glob("*.docx"))
+        found = sorted(path.rglob("*.docx"))
 
         if not found:
             raise SystemExit(f"no .docx files found in {path}")
