@@ -11,14 +11,14 @@ from taama_ccc.models import DocumentChunk
 from taama_ccc.qdrant_store import QdrantStore, create_qdrant_client
 from taama_ccc.retrieval import embed_texts
 
-console = Console()
+_console = Console()
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "corpus_path",
+        "--corpus-path",
         type=Path,
-        help="Path to a corpus .docx file, or a directory containing one or more .docx files.",
+        help="Path to a corpus .docx file, or a directory containing one or more .docx files",
     )
 
 
@@ -60,26 +60,26 @@ def _print_summary(chunks: list[DocumentChunk]) -> None:
     table.add_row("Illustrative-example rows (Part 4)", str(examples))
     table.add_row("Flagged possibly-stale sources", str(stale))
 
-    console.print(table)
+    _console.print(table)
 
 
 def run(args: argparse.Namespace) -> None:
     corpus_paths = _resolve_corpus_paths(args.corpus_path)
     settings = get_settings()
 
-    console.print(
+    _console.print(
         f"[bold]Corpus source(s):[/bold] {', '.join(p.name for p in corpus_paths)}"
     )
 
     all_chunks: list[DocumentChunk] = []
 
     for path in corpus_paths:
-        with console.status(f"Parsing {path.name}..."):
+        with _console.status(f"Parsing {path.name}..."):
             chunks = parse_corpus(path)
 
         all_chunks.extend(chunks)
 
-        console.print(
+        _console.print(
             f"  [green]\u2713[/green] {path.name} \u2014 {len(chunks)} chunks"
         )
 
@@ -90,22 +90,22 @@ def run(args: argparse.Namespace) -> None:
     qdrant_client = create_qdrant_client(settings)
     store = QdrantStore(qdrant_client, settings)
 
-    with console.status("Recreating Qdrant collection..."):
+    with _console.status("Recreating Qdrant collection..."):
         store.recreate_collection()
 
-    console.print(
+    _console.print(
         f"[green]\u2713[/green] Collection '{settings.qdrant_collection}' ready"
     )
 
-    with console.status(f"Embedding {len(all_chunks)} chunks...", spinner="dots"):
+    with _console.status(f"Embedding {len(all_chunks)} chunks...", spinner="dots"):
         vectors = embed_texts(client, settings, [chunk.text for chunk in all_chunks])
 
-    console.print(f"[green]\u2713[/green] Embedded {len(vectors)} chunks")
+    _console.print(f"[green]\u2713[/green] Embedded {len(vectors)} chunks")
 
-    with console.status("Indexing into Qdrant..."):
+    with _console.status("Indexing into Qdrant..."):
         store.upsert(all_chunks, vectors)
 
-    console.print(
+    _console.print(
         f"[bold green]Indexed {len(all_chunks)} chunks into "
         f"'{settings.qdrant_collection}'[/bold green]"
     )

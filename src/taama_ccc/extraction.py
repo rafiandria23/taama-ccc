@@ -48,7 +48,7 @@ SUPPORTED_SUFFIXES = frozenset(_IMAGE_MEDIA_TYPES) | {".pdf"}
 
 
 def _image_content_block(image_bytes: bytes, media_type: str) -> dict:
-    encoded = base64.b64decode(image_bytes).decode("utf-8")
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
 
     return {
         "type": "input_image",
@@ -120,7 +120,7 @@ def extract_claims(
 
     response = client.responses.parse(
         model=settings.openai_model,
-        inputs=[
+        input=[
             {
                 "role": "system",
                 "content": _EXTRACTION_SYSTEM_PROMPT,

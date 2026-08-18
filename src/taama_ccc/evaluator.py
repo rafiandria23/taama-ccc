@@ -26,7 +26,7 @@ class EvidenceClassificationBatch(BaseModel):
     classifications: list[EvidenceClassification]
 
 
-class Verdict:
+class Verdict(BaseModel):
     status: ComplianceStatus
     confidence: float = Field(ge=0.0, le=1.0)
     cited_evidence: list[Evidence]

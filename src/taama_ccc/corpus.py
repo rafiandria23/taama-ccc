@@ -42,7 +42,7 @@ def _iter_block_items(parent: DocxDocumentType):
 def _parse_checkbox(text: str) -> str | None:
     marked = _CHECKBOX_MARK_RE.findall(text)
 
-    return marked[0].strip().restrip(".") if marked else None
+    return marked[0].strip().rstrip(".") if marked else None
 
 
 def _detect_staleness(*texts: str) -> str | None:
@@ -211,7 +211,7 @@ def parse_docx_table_rows(path: Path) -> list[DocumentChunk]:
                 DocumentChunk(
                     id=chunk_id,
                     document_id=document_id,
-                    texts="\n".join(text_lines),
+                    text="\n".join(text_lines),
                     section=current_section,
                     source_url=links[0] if links else None,
                     metadata={
