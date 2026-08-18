@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sys
+import logging
 
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 from taama_ccc.config import Settings
 from taama_ccc.models import DocumentChunk, Evidence
 from taama_ccc.qdrant_store import QdrantStore
+
+logger = logging.getLogger(__name__)
 
 
 def embed_texts(
@@ -134,10 +136,10 @@ class Retriever:
         dropped = len(raw_results) - len(valid_results)
 
         if dropped:
-            print(
-                f"[retrieval] dropped {dropped} out-of-range rerank index(es) "
-                f"({len(chunks)} candidates supplied)",
-                file=sys.stderr,
+            logger.warning(
+                "dropped %d out-of-range rerank index(es) (%d candidates supplied)",
+                dropped,
+                len(chunks),
             )
 
         ranked = sorted(
